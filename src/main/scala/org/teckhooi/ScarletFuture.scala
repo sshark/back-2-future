@@ -1,47 +1,44 @@
 package org.teckhooi
 
-import scala.util.{Success, Failure, Try}
-import scala.concurrent.{Future, Await}
-import scala.concurrent.ExecutionContext.Implicits.global
-
-import scala.concurrent.duration._
-
 import org.teckhooi.concurrent.Foo._
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.util.{Failure, Success, Try}
+
 object ScarletFuture extends App {
-  def optionToTry[A](o: Option[A]) = o match {
-    case Some(a) => Success(a)
-    case None => Failure(new RuntimeException("Empty value"))
-  }
-
   override def main(args: Array[String]) = {
-    println("Scarlet running...")
+    println(s"Running... ${ScarletFuture.getClass.getName}")
     
-    val sleepMillis = 3000
+    val sleepMillis = 2000
 
-    val bigF = Future {
+    val bigF: Future[Unit] = Future {
       Try(Thread.sleep(sleepMillis))
-      optionToTry(Option(10)).flatMap(t => Try(foo(t))).get
+      Option(-10).foreach(foo)
     }
 
-    val smallF = Future {
+    val smallF: Future[Unit] = Future {
       Try(Thread.sleep(sleepMillis))
-      optionToTry(Option(-200)).flatMap(t => Try(foo(t))).get
+      Option(200).foreach(foo)
     }
 
-    Try(Thread.sleep(2000));
+//    Try(Thread.sleep(2000))
 
     val bigSmallF = bigF.zip(smallF)
 
-    bigF.map{t => "BigF is fine"}
+    bigF.map(_ => "BigF is fine")
       .recover{case t => "BigF is facing some trouble"}
-      .foreach {s => println(s)}
+      .foreach(println)
 
-    smallF.map{t => "SmallF is fine"}
+    smallF.map(_ => "SmallF is fine")
       .recover{case t => "SmallF is facing some trouble"}
-      .foreach {s => println(s)}
+      .foreach(println)
 
-    Await.ready(bigSmallF, 10 seconds)
+    Await.ready(bigSmallF, 10 seconds).onComplete {
+      case Success(_) => println("SmallF done")
+      case Failure(t) => println(s"** $t")
+    }
   }
 }
 
