@@ -1,4 +1,4 @@
-package org.teckhooi
+package org.teckhooi.concurrent
 
 import org.teckhooi.concurrent.Foo._
 
@@ -35,10 +35,13 @@ object ScarletFuture extends App {
       .recover{case t => "SmallF is facing some trouble"}
       .foreach(println)
 
+    Await.ready(bigSmallF, 10 seconds)
+      /*
     Await.ready(bigSmallF, 10 seconds).onComplete {
       case Success(_) => println("SmallF done")
       case Failure(t) => println(s"** $t")
     }
+    */
   }
 }
 
