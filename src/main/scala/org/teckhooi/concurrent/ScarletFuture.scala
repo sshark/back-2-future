@@ -73,17 +73,26 @@ object ScarletFuture extends App {
       * Assuming `sleepMillis` is set to 2s, the application will complete
       * in approximately 4.5s where 2s for bigF and smallF running
       * simultaneously, another 2s waiting in `newSmallF.map(...)` and
-      * finally few tens of a second for overhead. It should not taken
-      * 10s to complete.However, if the `Await` time is set to, say, 3s,
+      * finally few tenths of a second for overhead. It should not taken
+      * 10s to complete. The output would be,
+      *
+      * [info] Foo running with 200
+      * [info] Foo running with -10
+      * [info] BigF is facing some trouble
+      * [info] Fail => Must be +ve
+      *
+      * However, if the `Await` time is set to, say, 3s,
       * an exception will we thrown from `Await.ready(...)` because there
       * is not enough time for `bothF` to complete.
       *
-      * If `newSmallF` is used over `bothF` and a +ve value is used in bigF
-      * i.e. `Option(10)` the output of `Await.ready(...)` would be
+      * If `newSmallF` is used over `bothF` the output would be,
       *
+      * [info] Foo running with -10
+      * [info] Foo running with 200
+      * [info] BigF is facing some trouble
       * [info] Pass: SmallF is fine
       */
-    Await.ready(newSmallF, 10 seconds).onComplete{
+    Await.ready(bothF, 10 seconds).onComplete{
       case Success(x) => println(s"Pass: $x")
       case Failure(t) => println(s"Fail => ${t.getMessage}")
     }
