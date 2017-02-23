@@ -1,5 +1,7 @@
 package org.teckhooi.concurrent;
 
+import javaslang.Tuple2;
+import javaslang.collection.List;
 import javaslang.concurrent.Future;
 import javaslang.control.Option;
 import javaslang.control.Try;
@@ -11,7 +13,8 @@ import java.util.function.Function;
 import static org.teckhooi.concurrent.Foo.foo;
 
 /**
- * Created by sshark on 18/2/17.
+ * This code is the Java code imitating its Scala counterpart `org.teckhooi.concurrent.ScarletFuture`
+ * but it is not successful  because there is no equivalent of `Await.ready(...)` in Java yet
  */
 
 public class JarvisFuture {
@@ -22,7 +25,7 @@ public class JarvisFuture {
 
         Future<Void> bigF = Future.run(() -> {
             Try.run(() -> Thread.sleep(sleepMillis));
-            Option.of(-100).toTry().flatMap(t -> Try.run(() -> foo(t))).getOrElseThrow(Function.identity());
+            Option.of(-10).toTry().flatMap(t -> Try.run(() -> foo(t))).getOrElseThrow(Function.identity());
         });
 
         Future<Void> smallF = Future.run(() -> {
@@ -30,21 +33,46 @@ public class JarvisFuture {
             Option.of(200).toTry().flatMap(t -> Try.run(() -> foo(t))).getOrElseThrow(Function.identity());
         });
 
-//        Try.run(() -> Thread.sleep(sleepMillis + 500));
-
         bigF.map(t -> "BigF is ok")
             .recover(t -> "BigF is facing some problem")
             .forEach(System.out::println);
 
-        smallF.map(t -> "SmallF is ok")
-            .recover(t -> "SmallF is facing some problem")
-            .forEach(System.out::println);
+        Future<String> newSmallF = smallF.map(t -> {
+            Try.run(() -> Thread.sleep(sleepMillis));
+            return "SmallF is ok";
+        }).recover(t -> "SmallF is facing some problem");
 
-        ExecutorService executorService = bigF.executorService();
+        Future<Tuple2<Void, String>> bothF = bigF.zip(newSmallF);
+        newSmallF.forEach(System.out::println);
 
-        System.out.println("Shutdown...");
-        executorService.shutdown();
-        executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+        waitAndShutdown(bigF.executorService(), bigF, bothF);
+    }
+
+    /**
+     * This crude method (from @danieldietrich of JavaSlang) is used to mimic Scala
+     * `Await.ready(...)`. Careful as not to pass unrelated `executorService` and
+     * `futures`. It will initial shutdown all `Future`s have completed.
+     *
+     * The expected (expected because it is running concurrently) output is,
+     *
+     * [info] Foo running with -10
+     * [info] Foo running with 200
+     * [info] Failure(java.lang.Exception: Must be +ve)
+     * [info] Shutting down...
+     * [info] BigF is facing some problem
+     * [info] Shutdown.
+     *
+     * @param executorService the executor service used by the `Future`s
+     * @param futures the `Future`s to monitor
+     */
+    static void waitAndShutdown(ExecutorService executorService, Future<?>... futures) {
+        Future.sequence(executorService, List.of(futures)).onComplete(result -> Try.run(() -> {
+            System.out.println(result);
+            System.out.println("Shutting down...");
+            executorService.shutdown();
+            executorService.awaitTermination(3, TimeUnit.SECONDS);
+            System.out.println("Shutdown.");
+        }));
     }
 }
 
