@@ -1,6 +1,5 @@
 package org.teckhooi.concurrent;
 
-import javaslang.Tuple2;
 import javaslang.collection.List;
 import javaslang.concurrent.Future;
 import javaslang.control.Option;
@@ -41,11 +40,9 @@ public class JarvisFuture {
             Try.run(() -> Thread.sleep(sleepMillis));
             return "SmallF is ok";
         }).recover(t -> "SmallF is facing some problem");
-
-        Future<Tuple2<Void, String>> bothF = bigF.zip(newSmallF);
         newSmallF.forEach(System.out::println);
 
-        waitAndShutdown(bigF.executorService(), bigF, bothF);
+        waitAndShutdown(bigF.executorService(), bigF, newSmallF);
     }
 
     /**
