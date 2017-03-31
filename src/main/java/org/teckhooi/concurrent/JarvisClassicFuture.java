@@ -1,14 +1,13 @@
 package org.teckhooi.concurrent;
 
-import javaslang.concurrent.Future;
-import javaslang.control.Option;
-import javaslang.control.Try;
+import static org.teckhooi.concurrent.Foo.foo;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import static org.teckhooi.concurrent.Foo.foo;
+import javaslang.concurrent.Future;
+import javaslang.control.Option;
+import javaslang.control.Try;
 
 public class JarvisClassicFuture {
     public static void main(String[] args) throws Throwable {
@@ -35,4 +34,3 @@ public class JarvisClassicFuture {
 
     }
 }
-
