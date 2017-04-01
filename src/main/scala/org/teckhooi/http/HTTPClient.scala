@@ -2,6 +2,11 @@ package org.teckhooi.http
 
 import java.net.{InetSocketAddress, Proxy, URL}
 
+import org.apache.http.client.methods.HttpGet
+import org.apache.http.entity.ContentType
+import org.apache.http.impl.client.HttpClientBuilder
+import org.apache.http.{HttpHeaders, HttpHost}
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -22,7 +27,22 @@ object HTTPClient extends App {
   val proxyF = Future(Some(new URL("http://localhost:8080")))
 //  val proxyF = Future.successful(None)
 
-  val result = Reader((context: ConnectionContext) => {
+  val clientTry = for {
+    host <- hostF
+    proxy <- proxyF
+    _ <- HttpClientConnection.execute.run(ConnectionContext(host, 20, proxy))
+  } yield "Done"
+
+  clientTry.onComplete {
+    case Success(x) => println(x)
+    case Failure(t) => t.printStackTrace()
+  }
+
+  Await.ready(clientTry, 5 seconds)
+}
+
+object JDKHttpConnection {
+  def execute = Reader((context: ConnectionContext) => {
     val connections = (1 to context.numOfClients).map(ndx => Future {
       println(s"Connection $ndx running...")
 
@@ -38,18 +58,35 @@ object HTTPClient extends App {
 
     Future.sequence(connections)
   })
+}
 
+object HttpClientConnection {
+  def execute = Reader((context: ConnectionContext) => {
+    val httpClientBuilder = HttpClientBuilder
+      .create()
+      .setMaxConnPerRoute(2)
+      .setMaxConnTotal(5)
 
-  val clientTry = for {
-    host <- hostF
-    proxy <- proxyF
-    _ <- result.run(ConnectionContext(host, 20, proxy))
-  } yield "Done"
+    val httpClient = context.proxyURL
+      .map(p => httpClientBuilder.setProxy(new HttpHost(p.getHost, p.getPort)).build())
+      .getOrElse(httpClientBuilder.build())
 
-  clientTry.onComplete {
-    case Success(x) => println(x)
-    case Failure(t) => t.printStackTrace()
-  }
+    val connections = (1 to context.numOfClients).map(ndx => {
+      println(s"Connection $ndx running using Apache HttpClient...")
 
-  Await.ready(clientTry, 5 seconds)
+      Future {
+        val request = new HttpGet(context.url.toURI)
+        request.setHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType)
+        request.setHeader(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON.getMimeType)
+
+        val is = httpClient.execute(request).getEntity
+        Option(is.getContent).foreach(is => {
+          io.Source.fromInputStream(is).getLines().foreach(println)
+          is.close()
+        })
+      }
+    })
+
+    Future.sequence(connections)
+  })
 }
